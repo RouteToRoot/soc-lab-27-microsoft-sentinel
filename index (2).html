@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 27 — Microsoft Sentinel | RouteToRoot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1525;
+    --bg3: #141b2d;
+    --accent: #00d4ff;
+    --accent2: #0099cc;
+    --green: #00ff88;
+    --red: #ff4444;
+    --yellow: #ffcc00;
+    --text: #c8d8e8;
+    --text-dim: #6a7a8a;
+    --border: #1e2d42;
+    --mono: 'Share Tech Mono', monospace;
+    --head: 'Rajdhani', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Top nav bar */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .topbar a { color: var(--accent); text-decoration: none; }
+  .topbar a:hover { text-decoration: underline; }
+
+  .topbar-left span { color: var(--green); margin-right: 8px; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #0a0e1a 0%, #0d1520 40%, #0a1830 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 60px 40px 50px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: 'SENTINEL';
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--head);
+    font-size: 180px;
+    font-weight: 700;
+    color: rgba(0, 212, 255, 0.03);
+    letter-spacing: 10px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .lab-tag {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    display: inline-block;
+    padding: 4px 12px;
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+  }
+
+  .hero h1 {
+    font-family: var(--head);
+    font-size: 48px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 span { color: var(--accent); }
+
+  .hero-sub {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 30px;
+  }
+
+  .hero-sub span { color: var(--green); }
+
+  .badge-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+  }
+
+  .badge-blue { background: rgba(0,153,204,0.15); border: 1px solid rgba(0,153,204,0.4); color: var(--accent); }
+  .badge-green { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); color: var(--green); }
+  .badge-yellow { background: rgba(255,204,0,0.1); border: 1px solid rgba(255,204,0,0.3); color: var(--yellow); }
+
+  /* Main layout */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 40px;
+  }
+
+  /* Section */
+  .section {
+    padding: 50px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+  }
+
+  .section h2 {
+    font-family: var(--head);
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 24px;
+  }
+
+  /* Info grid */
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 30px;
+  }
+
+  .info-cell {
+    background: var(--bg2);
+    padding: 14px 18px;
+    display: flex;
+    gap: 16px;
+  }
+
+  .info-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    min-width: 140px;
+    letter-spacing: 1px;
+    padding-top: 1px;
+  }
+
+  .info-value {
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  .info-value.accent { color: var(--accent); font-family: var(--mono); }
+  .info-value.green { color: var(--green); font-family: var(--mono); }
+  .info-value.yellow { color: var(--yellow); }
+
+  /* Full width info cell */
+  .info-cell.full {
+    grid-column: 1 / -1;
+  }
+
+  /* Code block */
+  .code-block {
+    background: #060a12;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 24px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+    margin: 20px 0;
+    overflow-x: auto;
+  }
+
+  .code-block .kw { color: var(--accent); }
+  .code-block .op { color: #ff8c00; }
+  .code-block .val { color: var(--green); }
+  .code-block .comment { color: var(--text-dim); font-style: italic; }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 30px;
+    margin: 20px 0;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .timeline-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 2px;
+  }
+
+  .timeline-desc {
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  /* Screenshot block */
+  .screenshot-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    margin: 20px 0;
+    overflow: hidden;
+  }
+
+  .screenshot-caption {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .screenshot-caption::before {
+    content: '▶';
+    color: var(--accent);
+    font-size: 9px;
+  }
+
+  .screenshot-block img {
+    width: 100%;
+    display: block;
+  }
+
+  .screenshot-placeholder {
+    padding: 60px 20px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    border: 1px dashed var(--border);
+    margin: 4px;
+  }
+
+  /* Alert table */
+  .alert-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 20px 0;
+  }
+
+  .alert-table th {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    font-weight: normal;
+  }
+
+  .alert-table td {
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    color: var(--text);
+  }
+
+  .alert-table tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+  .tag-mitre {
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    display: inline-block;
+  }
+
+  .tag-medium {
+    background: rgba(255,204,0,0.1);
+    border: 1px solid rgba(255,204,0,0.3);
+    color: var(--yellow);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    display: inline-block;
+  }
+
+  /* Bullet list */
+  .bullet-list {
+    list-style: none;
+    margin: 16px 0;
+  }
+
+  .bullet-list li {
+    padding: 8px 0 8px 24px;
+    position: relative;
+    border-bottom: 1px solid rgba(30,45,66,0.5);
+    font-size: 14px;
+    color: var(--text);
+  }
+
+  .bullet-list li::before {
+    content: '//';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  /* Outcome box */
+  .outcome-box {
+    background: rgba(0,255,136,0.05);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-left: 3px solid var(--green);
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+
+  .outcome-box .label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--green);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .outcome-box p {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  /* Pipeline diagram */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 24px 0;
+    flex-wrap: wrap;
+  }
+
+  .pipe-step {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 14px 20px;
+    text-align: center;
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .pipe-step .icon { font-size: 20px; margin-bottom: 4px; }
+  .pipe-step .name { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 1px; }
+  .pipe-step .desc { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  .pipe-arrow {
+    color: var(--accent);
+    font-size: 20px;
+    padding: 0 4px;
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  .footer {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 30px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .footer a { color: var(--accent); text-decoration: none; }
+
+  p { margin-bottom: 12px; font-size: 14px; }
+
+  @media (max-width: 768px) {
+    .topbar, .hero, .container, .footer { padding-left: 20px; padding-right: 20px; }
+    .hero h1 { font-size: 32px; }
+    .info-grid { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; }
+    .pipe-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span>■</span> ROUTETOROOT // SOC ANALYST PORTFOLIO
+  </div>
+  <div>
+    <a href="https://routetoroot.github.io">← BACK TO PORTFOLIO</a>
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="https://github.com/RouteToRoot">GITHUB</a>
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="mailto:ericesec@gmail.com">CONTACT</a>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="container">
+    <div class="lab-tag">LAB 27 // MICROSOFT SENTINEL</div>
+    <h1>Cloud SIEM Detection<br><span>with Microsoft Sentinel</span></h1>
+    <div class="hero-sub">
+      <span>■</span> AZURE · LOG ANALYTICS · KQL · DEFENDER XDR · MITRE ATT&CK T1110
+    </div>
+    <div class="badge-row">
+      <span class="badge badge-blue">MICROSOFT SENTINEL</span>
+      <span class="badge badge-blue">KQL</span>
+      <span class="badge badge-blue">AZURE MONITOR AGENT</span>
+      <span class="badge badge-green">INCIDENT CONFIRMED</span>
+      <span class="badge badge-yellow">MEDIUM SEVERITY</span>
+    </div>
+  </div>
+</div>
+
+<!-- Objective -->
+<div class="container">
+  <div class="section">
+    <div class="section-label">// 01 — OBJECTIVE</div>
+    <h2>Lab Objective</h2>
+    <p>Deploy Microsoft Sentinel as a cloud-native SIEM in Azure, configure a Windows virtual machine to forward Security Events via the Azure Monitor Agent, write a custom KQL detection rule for failed login attempts (Event ID 4625), simulate a brute force attack, and investigate the resulting incident in Microsoft Defender XDR.</p>
+    <p>This lab demonstrates the complete cloud SOC pipeline — from log ingestion and detection engineering to incident triage — using the same toolstack found in enterprise security operations centers.</p>
+
+    <div class="outcome-box">
+      <div class="label">✓ LAB OUTCOME</div>
+      <p>Microsoft Sentinel successfully detected 30 failed login attempts from IP 64.183.42.233 targeting RTR-WinVM. 7 incidents were generated in the Defender XDR incident queue. Full detection chain validated end-to-end.</p>
+    </div>
+  </div>
+
+  <!-- Environment -->
+  <div class="section">
+    <div class="section-label">// 02 — ENVIRONMENT</div>
+    <h2>Lab Environment</h2>
+
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="info-label">SIEM PLATFORM</div>
+        <div class="info-value accent">Microsoft Sentinel</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">PORTAL</div>
+        <div class="info-value">Microsoft Defender XDR</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">LOG WORKSPACE</div>
+        <div class="info-value accent">RTR-LAW (West US 2)</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">VIRTUAL MACHINE</div>
+        <div class="info-value accent">RTR-WinVM</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">OS</div>
+        <div class="info-value">Windows Server 2025 Datacenter</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">VM REGION</div>
+        <div class="info-value">East US</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">DATA CONNECTOR</div>
+        <div class="info-value">Windows Security Events via AMA</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">DCR</div>
+        <div class="info-value accent">rtr-dcr-windowsevents</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">RESOURCE GROUP</div>
+        <div class="info-value">rtr-sentinel-lab</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">SUBSCRIPTION</div>
+        <div class="info-value">Azure Subscription 1 (Pay-As-You-Go)</div>
+      </div>
+    </div>
+
+    <p>The data pipeline flows from the Windows VM through the Azure Monitor Agent (AMA), governed by a Data Collection Rule (DCR), into the Log Analytics Workspace, and then into Microsoft Sentinel for detection and alerting.</p>
+
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="icon">🖥️</div>
+        <div class="name">RTR-WinVM</div>
+        <div class="desc">Windows Server 2025</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="icon">📡</div>
+        <div class="name">AMA AGENT</div>
+        <div class="desc">Azure Monitor Agent</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="icon">📋</div>
+        <div class="name">DCR</div>
+        <div class="desc">Data Collection Rule</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="icon">🗄️</div>
+        <div class="name">RTR-LAW</div>
+        <div class="desc">Log Analytics Workspace</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="icon">🛡️</div>
+        <div class="name">SENTINEL</div>
+        <div class="desc">Detection &amp; Alerting</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detection Rule -->
+  <div class="section">
+    <div class="section-label">// 03 — DETECTION ENGINEERING</div>
+    <h2>KQL Detection Rule</h2>
+    <p>A scheduled query analytic rule was created in Microsoft Sentinel to detect Windows brute force login attempts by monitoring Event ID 4625 (Failed Logon). The rule runs every 5 minutes and looks back over the last hour, alerting when 5 or more failed attempts are detected from a single account/IP combination.</p>
+
+    <div class="info-grid" style="margin-bottom:20px;">
+      <div class="info-cell">
+        <div class="info-label">RULE NAME</div>
+        <div class="info-value">Failed Login Detection — Event ID 4625</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">RULE TYPE</div>
+        <div class="info-value">Scheduled Query Rule</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">FREQUENCY</div>
+        <div class="info-value green">Every 5 minutes</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">LOOKBACK</div>
+        <div class="info-value">Last 1 hour</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">THRESHOLD</div>
+        <div class="info-value">≥ 5 failed attempts</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">SEVERITY</div>
+        <div class="info-value yellow">Medium</div>
+      </div>
+      <div class="info-cell full">
+        <div class="info-label">MITRE ATT&CK</div>
+        <div class="info-value"><span class="tag-mitre">T1110 — Brute Force</span> &nbsp; Credential Access (TA0006)</div>
+      </div>
+    </div>
+
+    <div class="code-block">
+<span class="comment">// Detect failed Windows login attempts (Event ID 4625)</span>
+<span class="kw">SecurityEvent</span>
+<span class="op">|</span> <span class="kw">where</span> EventID <span class="op">==</span> <span class="val">4625</span>
+<span class="op">|</span> <span class="kw">where</span> TimeGenerated <span class="op">></span> <span class="val">ago(1h)</span>
+<span class="op">|</span> <span class="kw">summarize</span> FailedAttempts <span class="op">=</span> <span class="val">count()</span> <span class="kw">by</span> Account, Computer, IpAddress
+<span class="op">|</span> <span class="kw">where</span> FailedAttempts <span class="op">>=</span> <span class="val">5</span>
+    </div>
+
+    <div class="screenshot-block">
+      <div class="screenshot-caption">Microsoft Sentinel Analytics — Rule Active (1 Active Rule, Medium Severity)</div>
+      <div class="screenshot-placeholder">[ Screenshot: screenshot_id_7_failed_login_detection.png — Sentinel Analytics showing 1 active rule ]</div>
+    </div>
+  </div>
+
+  <!-- Log Ingestion Verification -->
+  <div class="section">
+    <div class="section-label">// 04 — LOG INGESTION</div>
+    <h2>Log Analytics Verification</h2>
+    <p>Before creating the detection rule, log ingestion was verified by querying the SecurityEvent table directly in Log Analytics. The query returned 10 events from RTR-WinVM timestamped within the current session, confirming the data pipeline was functioning correctly.</p>
+
+    <div class="code-block">
+<span class="comment">// Verify SecurityEvent ingestion from RTR-WinVM</span>
+<span class="kw">SecurityEvent</span>
+<span class="op">|</span> <span class="kw">take</span> <span class="val">10</span>
+    </div>
+
+    <p>Results confirmed events from <code style="font-family:var(--mono);color:var(--accent);font-size:12px;">WORKGROUP\RTR-WinVM$</code> and <code style="font-family:var(--mono);color:var(--accent);font-size:12px;">NT AUTHORITY\SYSTEM</code> with timestamps matching the current session — proving end-to-end connectivity from the VM through AMA, DCR, and into the Log Analytics workspace.</p>
+  </div>
+
+  <!-- Attack Simulation -->
+  <div class="section">
+    <div class="section-label">// 05 — ATTACK SIMULATION</div>
+    <h2>Brute Force Simulation</h2>
+    <p>A brute force login simulation was performed against RTR-WinVM via RDP to generate real Event ID 4625 telemetry. The simulation used intentionally invalid credentials to produce failed logon events without compromising any actual accounts.</p>
+
+    <table class="alert-table">
+      <thead>
+        <tr>
+          <th>PARAMETER</th>
+          <th>VALUE</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Target Machine</td><td>RTR-WinVM</td></tr>
+        <tr><td>Target IP</td><td>20.127.82.236</td></tr>
+        <tr><td>Protocol</td><td>RDP (Port 3389)</td></tr>
+        <tr><td>Simulated Username</td><td>.\fakeuser</td></tr>
+        <tr><td>Simulated Password</td><td>[intentionally incorrect]</td></tr>
+        <tr><td>Attempts Made</td><td>10 manual RDP attempts</td></tr>
+        <tr><td>Total Attempts Detected</td><td>30 (within 1-hour lookback window)</td></tr>
+        <tr><td>Event ID Generated</td><td>4625 — An account failed to log on</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Incident Investigation -->
+  <div class="section">
+    <div class="section-label">// 06 — INCIDENT INVESTIGATION</div>
+    <h2>Incident Analysis</h2>
+    <p>The Sentinel analytic rule triggered successfully. Multiple incidents were generated in the Microsoft Defender XDR incident queue within minutes of the simulation.</p>
+
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="info-label">INCIDENT ID</div>
+        <div class="info-value accent">7 (latest)</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">TOTAL INCIDENTS</div>
+        <div class="info-value green">7 generated</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">ALERT NAME</div>
+        <div class="info-value">Failed Login Detection — Event ID 4625</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">STATUS</div>
+        <div class="info-value green">Active</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">SEVERITY</div>
+        <div class="info-value"><span class="tag-medium">MEDIUM</span></div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">ACTIVE ALERTS</div>
+        <div class="info-value">1/1</div>
+      </div>
+    </div>
+
+    <div class="screenshot-block">
+      <div class="screenshot-caption">Incident ID 5 — Attack Story view showing first activity, last activity, and alert details</div>
+      <div class="screenshot-placeholder">[ Screenshot: screenshot_id_5_alert_details_fakeuser.png ]</div>
+    </div>
+
+    <div class="screenshot-block">
+      <div class="screenshot-caption">Incident ID 7 — Alerts tab showing Failed Login Detection alert (Medium severity)</div>
+      <div class="screenshot-placeholder">[ Screenshot: screenshot_id_7_alerts_tab.png ]</div>
+    </div>
+
+    <h2 style="margin-top:30px;">Alert Query Results — IOCs Identified</h2>
+
+    <table class="alert-table">
+      <thead>
+        <tr>
+          <th>FIELD</th>
+          <th>VALUE</th>
+          <th>NOTES</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Account</td>
+          <td style="font-family:var(--mono);color:var(--accent);">.\fakeuser</td>
+          <td>Local non-existent account — enumeration attempt</td>
+        </tr>
+        <tr>
+          <td>Computer</td>
+          <td style="font-family:var(--mono);color:var(--accent);">RTR-WinVM</td>
+          <td>Target machine</td>
+        </tr>
+        <tr>
+          <td>Source IP</td>
+          <td style="font-family:var(--mono);color:var(--yellow);">64.183.42.233</td>
+          <td>External IP — attacker origin</td>
+        </tr>
+        <tr>
+          <td>Failed Attempts</td>
+          <td style="font-family:var(--mono);color:var(--red);">30</td>
+          <td>Well above threshold of 5 — confirmed brute force pattern</td>
+        </tr>
+        <tr>
+          <td>Event ID</td>
+          <td style="font-family:var(--mono);">4625</td>
+          <td>Windows Security: An account failed to log on</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="screenshot-block">
+      <div class="screenshot-caption">Alert details — fakeuser, RTR-WinVM, IP 64.183.42.233, 30 failed attempts confirmed</div>
+      <div class="screenshot-placeholder">[ Screenshot: screenshot_alert_details_fakeuser.png ]</div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="section">
+    <div class="section-label">// 07 — TIMELINE</div>
+    <h2>Incident Timeline</h2>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-time">MAY 9, 2026 — 3:06 PM UTC</div>
+        <div class="timeline-desc">First failed login attempt recorded on RTR-WinVM (Event ID 4625)</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">MAY 9, 2026 — 3:16 PM UTC</div>
+        <div class="timeline-desc">Sentinel analytic rule runs — alert triggered for Incident ID 7</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">MAY 9, 2026 — 4:06 PM UTC</div>
+        <div class="timeline-desc">Last failed login attempt recorded — attack window closes</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">MAY 9, 2026 — 4:11 PM UTC</div>
+        <div class="timeline-desc">Incident ID 5 created in Microsoft Defender XDR incident queue</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">MAY 9, 2026 — 4:21 PM UTC</div>
+        <div class="timeline-desc">Incident ID 7 created — 7 total incidents in queue, all confirmed Medium severity</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-time">MAY 9, 2026 — 4:34 PM UTC</div>
+        <div class="timeline-desc">Alert details reviewed — 30 failed attempts, fakeuser, IP 64.183.42.233 confirmed as IOCs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analysis -->
+  <div class="section">
+    <div class="section-label">// 08 — ANALYSIS</div>
+    <h2>Findings &amp; MITRE Mapping</h2>
+
+    <p>The 30 failed login attempts from a single external IP targeting a non-existent local account (fakeuser) on RTR-WinVM is consistent with an automated credential brute force attack pattern. Key indicators:</p>
+
+    <ul class="bullet-list">
+      <li>High attempt volume in a compressed timeframe — 30 failures in under 1 hour indicates automation</li>
+      <li>Single source IP targeting one machine — targeted brute force, not distributed credential spray</li>
+      <li>Account name 'fakeuser' does not exist on the system — attacker attempting account enumeration</li>
+      <li>No successful logon (Event ID 4624) following the failures — access was not achieved</li>
+      <li>RDP exposed on public IP — attack vector is open internet-facing Remote Desktop</li>
+    </ul>
+
+    <table class="alert-table" style="margin-top:24px;">
+      <thead>
+        <tr>
+          <th>MITRE FIELD</th>
+          <th>VALUE</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Tactic</td><td>Credential Access (TA0006)</td></tr>
+        <tr><td>Technique</td><td>Brute Force (T1110)</td></tr>
+        <tr><td>Sub-technique</td><td>Password Guessing (T1110.001)</td></tr>
+        <tr><td>Objective</td><td>Gain unauthorized RDP access to RTR-WinVM</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Containment -->
+  <div class="section">
+    <div class="section-label">// 09 — RESPONSE</div>
+    <h2>Containment &amp; Recommendations</h2>
+    <p>The following containment actions would be taken in a production environment:</p>
+
+    <ul class="bullet-list">
+      <li>Block source IP 64.183.42.233 at the Azure Network Security Group (NSG) level immediately</li>
+      <li>Disable public RDP (port 3389) exposure — restrict access to Azure Bastion or VPN only</li>
+      <li>Enable account lockout policy after 5 failed attempts via Group Policy</li>
+      <li>Enable MFA for all accounts with RDP access</li>
+      <li>Sweep other machines in the environment for login attempts from the same source IP</li>
+      <li>Review Azure Activity Log for any unauthorized resource modifications from the source IP</li>
+      <li>Escalate to Tier 2 if lateral movement or additional IOCs are identified</li>
+    </ul>
+  </div>
+
+  <!-- Lessons Learned -->
+  <div class="section">
+    <div class="section-label">// 10 — LESSONS LEARNED</div>
+    <h2>Key Takeaways</h2>
+
+    <ul class="bullet-list">
+      <li>Microsoft Sentinel ingested Windows Security Events from RTR-WinVM via AMA and the rtr-dcr-windowsevents DCR with no data loss</li>
+      <li>KQL query using EventID 4625 with summarize and threshold filtering effectively surfaced brute force activity while reducing noise</li>
+      <li>The 5-minute scheduled rule with 1-hour lookback provided near real-time detection — incidents appeared in Defender XDR within minutes</li>
+      <li>Microsoft Defender XDR consolidates Sentinel incidents with broader XDR telemetry — this integration mirrors enterprise SOC architecture</li>
+      <li>Public RDP exposure is a high-risk attack surface — this lab demonstrates exactly why it should never be left open on production systems</li>
+      <li>Sentinel's analytics rule wizard makes detection engineering accessible while the underlying KQL provides enterprise-grade flexibility</li>
+    </ul>
+  </div>
+
+  <!-- Tools -->
+  <div class="section">
+    <div class="section-label">// 11 — TOOLS USED</div>
+    <h2>Technologies &amp; Tools</h2>
+
+    <div class="info-grid">
+      <div class="info-cell">
+        <div class="info-label">SIEM</div>
+        <div class="info-value accent">Microsoft Sentinel</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">SECURITY PORTAL</div>
+        <div class="info-value">Microsoft Defender XDR</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">QUERY LANGUAGE</div>
+        <div class="info-value accent">KQL (Kusto Query Language)</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">LOG SOURCE</div>
+        <div class="info-value">Windows Security Events</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">DATA PIPELINE</div>
+        <div class="info-value">Azure Monitor Agent + DCR</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">VM PLATFORM</div>
+        <div class="info-value">Azure Virtual Machines</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">ATTACK SIMULATION</div>
+        <div class="info-value">Manual RDP brute force via mstsc</div>
+      </div>
+      <div class="info-cell">
+        <div class="info-label">MITRE FRAMEWORK</div>
+        <div class="info-value">ATT&CK v14 — T1110 Brute Force</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end container -->
+
+<!-- Footer -->
+<div class="footer">
+  <div>LAB 27 // MICROSOFT SENTINEL // MAY 9, 2026</div>
+  <div>
+    <a href="https://routetoroot.github.io">PORTFOLIO</a>
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="https://github.com/RouteToRoot">GITHUB</a>
+    &nbsp;&nbsp;|&nbsp;&nbsp;
+    <a href="mailto:ericesec@gmail.com">ericesec@gmail.com</a>
+  </div>
+</div>
+
+</body>
+</html>
